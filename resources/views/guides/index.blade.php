@@ -302,7 +302,7 @@
 
             function addGuideToTable(guide) {
                 let date = new Date(guide.created_at);
-                let formattedDate = date.toLocaleString('en-US', {
+                let formattedDate = date.toLocaleString('es-ES', {
                     day: '2-digit',
                     month: '2-digit',
                     year: 'numeric',

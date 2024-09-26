@@ -35,7 +35,7 @@
                                         <tr>
                                             <td>{{ $user->name }}</td>
                                             <td>{{ $user->email }}</td>
-                                            <td>{{ $user->role->name }}</td>
+                                            <td>{{ $user->role->description }}</td>
                                             <td>{{ $user->created_at->format('d/m/Y') }}</td>
                                             <td>
                                                 <button type="button" class="btn btn-warning btn-icon btn-sm" onclick="editUser({{ $user->id }})">
@@ -75,7 +75,7 @@
                             <label for="role_id">Rol</label>
                             <select class="form-control" id="role_id" name="role_id" required onchange="handleRoleChange()">
                                 @foreach($roles as $role)
-                                    <option value="{{ $role->id }}">{{ $role->name }}</option>
+                                    <option value="{{ $role->id }}">{{ $role->description }}</option>
                                 @endforeach
                             </select>
                         </div>

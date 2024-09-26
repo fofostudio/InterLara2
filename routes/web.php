@@ -62,6 +62,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard/data', [PageController::class, 'getMonthlyData'])->name('dashboard.data');
     Route::get('/dashboard', [PageController::class, 'dashboard'])->name('dashboard');
 
     Route::get('/guides', [GuideController::class, 'index'])->name('guides.index');
