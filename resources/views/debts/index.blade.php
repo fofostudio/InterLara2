@@ -178,7 +178,7 @@
                                     <tr>
                                         <td>{{ $debt->user->name }}</td>
                                         <td>{{ formatCurrency($debt->amount) }}</td>
-                                        <td>{{ $debt->description }}</td>
+                                        <td>{{ $debt->observation }}</td>
                                         <td>{{ $debt->created_at->format('d/m/Y h:i A') }}</td>
                                     </tr>
                                 @endforeach
@@ -248,7 +248,7 @@ $(document).ready(function() {
             <tr>
                 <td>${debt.user.name}</td>
                 <td>${formatCurrency(debt.amount)}</td>
-                <td>${debt.description}</td>
+                <td>${debt.observation}</td>
                 <td>${formatDate(debt.created_at)}</td>
             </tr>
         `;

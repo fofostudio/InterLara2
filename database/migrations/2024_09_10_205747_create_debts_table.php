@@ -11,6 +11,7 @@ class CreateDebtsTable extends Migration
         Schema::create('debts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('cashier_id');
             $table->decimal('amount', 10, 2);
             $table->string('guide_number')->nullable();
             $table->string('client')->nullable();

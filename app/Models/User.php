@@ -87,6 +87,10 @@ class User extends Authenticatable
     {
         return $this->guides()->sum('value');
     }
+    public function getRoleName()
+    {
+        return $this->role ? $this->role->name : 'Sin rol';
+    }
 
     /**
      * Get the total amount of debts for the user.
