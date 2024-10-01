@@ -307,6 +307,7 @@
 
             function updateTable(tableId, data) {
                 var table = $('#' + tableId);
+                
                 table.find('tbody').empty();
                 $.each(data, function(user, value) {
                     table.find('tbody').append(
