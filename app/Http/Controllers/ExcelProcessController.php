@@ -11,6 +11,7 @@ use App\Models\SecondExcelData;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class ExcelProcessController extends Controller
 {
@@ -24,29 +25,49 @@ class ExcelProcessController extends Controller
 
     public function uploadFirst(Request $request)
     {
-        $request->validate([
-            'file' => 'required|mimes:xlsx,xls',
-            'month' => 'required|integer|min:1|max:12',
-        ]);
-
-        $month = $request->input('month');
-        $year = date('Y');
-
+        Log::info('Iniciando uploadFirst');
         try {
+            Log::info('Validando request');
+            $validator = Validator::make($request->all(), [
+                'file' => 'required|file|mimes:xlsx,xls|max:5120', // 5MB max
+                'month' => 'required|integer|min:1|max:12',
+            ]);
+
+            if ($validator->fails()) {
+                Log::error('Validación fallida: ' . json_encode($validator->errors()));
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+
+            Log::info('Validación exitosa, procesando archivo');
+            $file = $request->file('file');
+            Log::info('Archivo recibido: ' . $file->getClientOriginalName() . ', tamaño: ' . $file->getSize() . ' bytes');
+
+            $month = $request->input('month');
+            $year = date('Y');
+
+            Log::info('Iniciando transacción DB');
             DB::beginTransaction();
 
+            Log::info('Verificando datos existentes');
             if (FirstExcelData::whereYear('fecha_venta', $year)->whereMonth('fecha_venta', $month)->exists()) {
                 if (!$request->input('overwrite', false)) {
+                    Log::info('Datos existentes, solicitando confirmación para sobrescribir');
                     return response()->json(['exists' => true]);
                 }
+                Log::info('Eliminando datos existentes');
                 FirstExcelData::whereYear('fecha_venta', $year)->whereMonth('fecha_venta', $month)->delete();
             }
 
+            Log::info('Creando instancia de FirstExcelImport');
             $import = new FirstExcelImport($month, $year);
-            Excel::import($import, $request->file('file'));
 
+            Log::info('Importando datos');
+            Excel::import($import, $file);
+
+            Log::info('Obteniendo resumen de importación');
             $summary = $import->getImportSummary();
 
+            Log::info('Commit de la transacción');
             DB::commit();
 
             $response = [
@@ -56,15 +77,18 @@ class ExcelProcessController extends Controller
             ];
 
             if ($summary['error_rows'] > 0) {
+                Log::info('Errores encontrados, preparando archivo de errores');
                 $errorFiles = Storage::files('error_csvs');
                 $latestErrorFile = end($errorFiles);
                 $response['error_csv_url'] = Storage::url($latestErrorFile);
             }
 
+            Log::info('Importación completada con éxito');
             return response()->json($response);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error al procesar el primer archivo Excel: ' . $e->getMessage());
+            Log::error('Error en uploadFirst: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
             return response()->json(['success' => false, 'message' => 'Error al procesar el archivo: ' . $e->getMessage()], 500);
         }
     }
