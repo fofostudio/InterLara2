@@ -5,25 +5,28 @@ namespace App\Imports;
 use App\Models\FirstExcelData;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
-class FirstExcelImport implements ToCollection, WithHeadingRow
+class FirstExcelImport implements ToCollection, WithHeadingRow, WithChunkReading, WithBatchInserts
 {
     protected $month;
     protected $year;
     protected $rowCount = 0;
     protected $importedCount = 0;
     protected $errorRows = [];
-    protected $uniqueGuides = [];
 
     public function __construct($month, $year)
     {
         $this->month = $month;
         $this->year = $year;
+        DB::statement('CREATE TEMPORARY TABLE IF NOT EXISTS temp_guias (numero_guia VARCHAR(255) PRIMARY KEY)');
     }
 
     public function collection(Collection $rows)
@@ -32,19 +35,36 @@ class FirstExcelImport implements ToCollection, WithHeadingRow
             throw new \Exception("El archivo Excel está vacío");
         }
 
-        foreach ($rows as $index => $row)
-        {
-            $this->rowCount++;
-            try {
-                $this->processRow($row, $index);
-            } catch (\Exception $e) {
-                $this->addErrorRow($row, $index, $e->getMessage());
-                continue;
+        DB::beginTransaction();
+        try {
+            $dataToInsert = [];
+            foreach ($rows as $index => $row)
+            {
+                $this->rowCount++;
+                try {
+                    $processedRow = $this->processRow($row, $index);
+                    if ($processedRow) {
+                        $dataToInsert[] = $processedRow;
+                    }
+                } catch (\Exception $e) {
+                    $this->addErrorRow($row, $index, $e->getMessage());
+                    continue;
+                }
             }
-        }
 
-        $this->generateErrorCSV();
-        $this->logImportSummary();
+            if (!empty($dataToInsert)) {
+                FirstExcelData::insert($dataToInsert);
+            }
+
+            $this->generateErrorCSV();
+            $this->logImportSummary();
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error durante la importación: ' . $e->getMessage());
+            throw $e;
+        }
     }
 
     protected function processRow($row, $index)
@@ -55,16 +75,18 @@ class FirstExcelImport implements ToCollection, WithHeadingRow
         }
 
         $numeroGuia = $this->getValueFromRow($row, ['numero_guia', 'numero_de_guia', 'numeroguia']);
-        if (in_array($numeroGuia, $this->uniqueGuides)) {
+        $isDuplicate = DB::table('temp_guias')->where('numero_guia', $numeroGuia)->exists();
+        if ($isDuplicate) {
             throw new \Exception("Número de guía duplicado");
         }
+        DB::table('temp_guias')->insert(['numero_guia' => $numeroGuia]);
 
         $fechaVenta = $this->parseFecha($this->getValueFromRow($row, ['fecha_venta', 'fecha_de_venta', 'fechaventa']));
         if ($fechaVenta->month != $this->month || $fechaVenta->year != $this->year) {
             throw new \Exception("La fecha de venta no corresponde al mes y año seleccionados");
         }
 
-        FirstExcelData::create([
+        return [
             'numero_guia' => $numeroGuia,
             'regional_origen' => $this->getValueFromRow($row, ['regional_origen', 'regionalorigen']),
             'codigo_ciudad_origen' => $this->getValueFromRow($row, ['codigo_ciudad_origen', 'codigociudadorigen']),
@@ -136,10 +158,7 @@ class FirstExcelImport implements ToCollection, WithHeadingRow
             'fecha_recibido' => $this->parseFecha($this->getValueFromRow($row, ['fecha_recibido', 'fecharecibido'])),
             'fecha_archivo' => $this->parseFecha($this->getValueFromRow($row, ['fecha_archivo', 'fechaarchivo'])),
             'archivo_prueba' => $this->getValueFromRow($row, ['archivo_prueba', 'archivoprueba']),
-        ]);
-
-        $this->uniqueGuides[] = $numeroGuia;
-        $this->importedCount++;
+        ];
     }
 
     protected function validateRow($row)
@@ -214,5 +233,15 @@ class FirstExcelImport implements ToCollection, WithHeadingRow
             'imported_rows' => $this->importedCount,
             'error_rows' => count($this->errorRows),
         ];
+    }
+
+    public function chunkSize(): int
+    {
+        return 1000; // Ajusta este número según sea necesario
+    }
+
+    public function batchSize(): int
+    {
+        return 1000; //
     }
 }
