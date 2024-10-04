@@ -32,9 +32,10 @@ class ExcelProcessController extends Controller
                 'file' => 'required|file|mimes:xlsx,xls|max:5120', // 5MB max
                 'month' => 'required|integer|min:1|max:12',
             ]);
-
+            
             if ($validator->fails()) {
                 Log::error('Validación fallida: ' . json_encode($validator->errors()));
+                Log::error('Contenido de $request->all(): ' . json_encode($request->all()));
                 return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
             }
 
