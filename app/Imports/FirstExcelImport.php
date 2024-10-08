@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Imports;
 
 use App\Models\FirstExcelData;
@@ -26,65 +27,112 @@ class FirstExcelImport implements ToCollection, WithHeadingRow, WithChunkReading
         $this->month = $month;
         $this->year = $year;
         DB::statement('CREATE TEMPORARY TABLE IF NOT EXISTS temp_guias (numero_guia VARCHAR(255) PRIMARY KEY)');
+        Log::info("FirstExcelImport iniciado para mes: $month, año: $year");
     }
 
     public function collection(Collection $rows)
     {
+        ini_set('max_execution_time', 0);
+        ini_set('memory_limit', '-1');
+        set_time_limit(0);
+        Log::info("Iniciando importación con " . $rows->count() . " filas");
         if ($rows->isEmpty()) {
+            Log::warning("El archivo Excel está vacío");
             throw new \Exception("El archivo Excel está vacío");
         }
-
-        DB::beginTransaction();
-        try {
-            $dataToInsert = [];
-            foreach ($rows as $index => $row)
-            {
-                $this->rowCount++;
-                try {
-                    $processedRow = $this->processRow($row, $index);
-                    if ($processedRow) {
-                        $dataToInsert[] = $processedRow;
+    
+        $maxAttempts = 3;
+        $attempt = 0;
+    
+        while ($attempt < $maxAttempts) {
+            try {
+                DB::beginTransaction();
+                
+                $chunkSize = 100;
+                $chunks = $rows->chunk($chunkSize);
+                $totalChunks = $chunks->count();
+                
+                Log::info("Procesando $totalChunks chunks de $chunkSize filas cada uno");
+    
+                foreach ($chunks as $chunkIndex => $chunk) {
+                    Log::info("Procesando chunk " . ($chunkIndex + 1) . " de $totalChunks");
+                    $dataToInsert = [];
+                    foreach ($chunk as $index => $row) {
+                        $this->rowCount++;
+                        try {
+                            Log::debug("Procesando fila $this->rowCount");
+                            $processedRow = $this->processRow($row, $this->rowCount);
+                            if ($processedRow) {
+                                $dataToInsert[] = $processedRow;
+                                $this->importedCount++;
+                            }
+                        } catch (\Exception $e) {
+                            Log::error("Error en fila $this->rowCount: " . $e->getMessage());
+                            $this->addErrorRow($row, $this->rowCount, $e->getMessage());
+                            continue;
+                        }
                     }
-                } catch (\Exception $e) {
-                    $this->addErrorRow($row, $index, $e->getMessage());
-                    continue;
+    
+                    if (!empty($dataToInsert)) {
+                        Log::info("Insertando lote de " . count($dataToInsert) . " filas");
+                        FirstExcelData::insert($dataToInsert);
+                    }
                 }
+    
+                $this->generateErrorCSV();
+                $this->logImportSummary();
+    
+                DB::commit();
+                Log::info("Importación completada exitosamente");
+                break; // Salir del bucle si la importación fue exitosa
+            } catch (\Illuminate\Database\QueryException $e) {
+                $attempt++;
+                Log::error("Intento $attempt de $maxAttempts falló. Error de base de datos: " . $e->getMessage());
+                
+                if ($attempt >= $maxAttempts) {
+                    Log::error("Se alcanzó el número máximo de intentos. Abortando importación.");
+                    throw $e;
+                }
+                
+                Log::info("Esperando antes de reintentar...");
+                sleep(5); // Espera 5 segundos antes de reintentar
+                
+                // Intentar reconectar a la base de datos
+                DB::reconnect();
+                Log::info("Reconexión a la base de datos realizada. Reintentando importación.");
+            } catch (\Exception $e) {
+                Log::error('Error inesperado en la importación: ' . $e->getMessage());
+                Log::error('Trace: ' . $e->getTraceAsString());
+                throw $e; // Lanzar la excepción para errores no relacionados con la base de datos
             }
-
-            if (!empty($dataToInsert)) {
-                FirstExcelData::insert($dataToInsert);
-            }
-
-            $this->generateErrorCSV();
-            $this->logImportSummary();
-
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error durante la importación: ' . $e->getMessage());
-            throw $e;
         }
     }
 
-    protected function processRow($row, $index)
+    protected function processRow($row, $rowNumber)
     {
+        Log::debug("Procesando fila $rowNumber");
         $validatedData = $this->validateRow($row);
         if ($validatedData->fails()) {
-            throw new \Exception(implode(', ', $validatedData->errors()->all()));
+            $errors = implode(', ', $validatedData->errors()->all());
+            Log::warning("Validación fallida en fila $rowNumber: $errors");
+            throw new \Exception($errors);
         }
 
         $numeroGuia = $this->getValueFromRow($row, ['numero_guia', 'numero_de_guia', 'numeroguia']);
         $isDuplicate = DB::table('temp_guias')->where('numero_guia', $numeroGuia)->exists();
         if ($isDuplicate) {
-            throw new \Exception("Número de guía duplicado");
+            Log::warning("Número de guía duplicado en fila $rowNumber: $numeroGuia");
+            throw new \Exception("Número de guía duplicado: $numeroGuia");
         }
         DB::table('temp_guias')->insert(['numero_guia' => $numeroGuia]);
 
         $fechaVenta = $this->parseFecha($this->getValueFromRow($row, ['fecha_venta', 'fecha_de_venta', 'fechaventa']));
-        if ($fechaVenta->month != $this->month || $fechaVenta->year != $this->year) {
+        if ($fechaVenta && ($fechaVenta->month != $this->month || $fechaVenta->year != $this->year)) {
+            Log::warning("Fecha de venta incorrecta en fila $rowNumber: " . $fechaVenta->toDateString());
             throw new \Exception("La fecha de venta no corresponde al mes y año seleccionados");
         }
 
+        Log::debug("Fila $rowNumber procesada exitosamente");
         return [
             'numero_guia' => $numeroGuia,
             'regional_origen' => $this->getValueFromRow($row, ['regional_origen', 'regionalorigen']),
@@ -176,7 +224,6 @@ class FirstExcelImport implements ToCollection, WithHeadingRow, WithChunkReading
         }
         return null;
     }
-
     protected function parseFecha($valor)
     {
         if (!$valor) return null;
@@ -184,21 +231,24 @@ class FirstExcelImport implements ToCollection, WithHeadingRow, WithChunkReading
         try {
             return Carbon::parse($valor);
         } catch (\Exception $e) {
-            Log::warning("No se pudo parsear la fecha: $valor");
+            Log::warning("No se pudo parsear la fecha: $valor", ['error' => $e->getMessage()]);
             return null;
         }
     }
 
-    protected function addErrorRow($row, $index, $reason)
+    protected function addErrorRow($row, $rowNumber, $reason)
     {
         $errorRow = $row->toArray();
+        $errorRow['row_number'] = $rowNumber;
         $errorRow['error_reason'] = $reason;
-        $this->errorRows[$index] = $errorRow;
+        $this->errorRows[] = $errorRow;
+        Log::warning("Fila $rowNumber añadida a errores: $reason");
     }
 
     protected function generateErrorCSV()
     {
         if (empty($this->errorRows)) {
+            Log::info("No se encontraron errores durante la importación");
             return;
         }
 
@@ -212,6 +262,7 @@ class FirstExcelImport implements ToCollection, WithHeadingRow, WithChunkReading
         }
 
         Storage::put('error_csvs/' . $csvFileName, $csvContent);
+        Log::info("Archivo de errores generado: $csvFileName");
     }
 
     protected function logImportSummary()
@@ -236,11 +287,11 @@ class FirstExcelImport implements ToCollection, WithHeadingRow, WithChunkReading
 
     public function chunkSize(): int
     {
-        return 1000; // Ajusta este número según sea necesario
+        return 500; // Ajusta según sea necesario
     }
-
+    
     public function batchSize(): int
     {
-        return 1000; //
+        return 100; // Ajusta según sea necesario
     }
 }

@@ -29,10 +29,10 @@ class ExcelProcessController extends Controller
         try {
             Log::info('Validando request');
             $validator = Validator::make($request->all(), [
-                'file' => 'required|file|mimes:xlsx,xls|max:5120', // 5MB max
+                'file' => 'required|file|mimes:xlsx,xls|max:10240', // 10MB max
                 'month' => 'required|integer|min:1|max:12',
             ]);
-            
+
             if ($validator->fails()) {
                 Log::error('Validación fallida: ' . json_encode($validator->errors()));
                 Log::error('Contenido de $request->all(): ' . json_encode($request->all()));
@@ -86,6 +86,16 @@ class ExcelProcessController extends Controller
 
             Log::info('Importación completada con éxito');
             return response()->json($response);
+        } catch (\Maatwebsite\Excel\Exceptions\SheetNotFoundException $e) {
+            DB::rollBack();
+            Log::error('Error: Hoja no encontrada en el archivo Excel: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error: El archivo Excel no contiene la hoja esperada.'], 422);
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+            Log::error('Error de base de datos: ' . $e->getMessage());
+            Log::error('SQL: ' . $e->getSql());
+            Log::error('Bindings: ' . json_encode($e->getBindings()));
+            return response()->json(['success' => false, 'message' => 'Error de base de datos al procesar el archivo. Por favor, revise los logs para más detalles.'], 500);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error en uploadFirst: ' . $e->getMessage());
@@ -93,7 +103,6 @@ class ExcelProcessController extends Controller
             return response()->json(['success' => false, 'message' => 'Error al procesar el archivo: ' . $e->getMessage()], 500);
         }
     }
-
     public function uploadSecond(Request $request)
     {
         $request->validate([

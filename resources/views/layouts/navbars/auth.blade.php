@@ -1,13 +1,14 @@
 <div class="sidebar" data-color="black" data-active-color="danger">
     <div class="logo">
-        <a href="http://www.creative-tim.com" class="simple-text logo-mini">
+        <a href="http://www.fofostudio.com" class="simple-text logo-mini">
             <div class="logo-image-small">
                 <img src="{{ asset('paper') }}/img/logo-small.png">
             </div>
         </a>
-        <a href="http://www.creative-tim.com" class="simple-text logo-normal">
+        <a href="http://www.fofostudio.com" class="simple-text logo-normal">
             {{ __('InterRapidisimo') }}
         </a>
+        <strong>{{ __('Punto:') }}</strong>
     </div>
     <div class="sidebar-wrapper">
         <ul class="nav">

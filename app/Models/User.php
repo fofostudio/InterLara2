@@ -22,6 +22,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
+        'point_id',
     ];
 
     /**
@@ -49,6 +50,11 @@ class User extends Authenticatable
     public function role()
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function point()
+    {
+        return $this->belongsTo(Point::class);
     }
 
     /**
