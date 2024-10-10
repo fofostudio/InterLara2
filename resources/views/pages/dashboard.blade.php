@@ -5,11 +5,10 @@
 
 @section('content')
     <div class="content">
-        <!-- Datos Globales -->
         <div class="row">
             <div class="col-lg-3 col-md-6 col-sm-6">
                 <div class="card card-stats">
-                    <div class="card-body">
+                    <div class="card-body ">
                         <div class="row">
                             <div class="col-5 col-md-4">
                                 <div class="icon-big text-center icon-warning">
@@ -19,13 +18,12 @@
                             <div class="col-7 col-md-8">
                                 <div class="numbers">
                                     <p class="card-category">Guías Registradas</p>
-                                    <p class="card-title" id="totalGuides">{{ number_format($initialData['totalGuides']) }}
-                                    </p>
+                                    <p class="card-title">{{ number_format($initialData['totalGuides']) }}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer">
+                    <div class="card-footer ">
                         <hr>
                         <div class="stats">
                             <i class="fa fa-refresh"></i> Actualizado ahora
@@ -35,7 +33,7 @@
             </div>
             <div class="col-lg-3 col-md-6 col-sm-6">
                 <div class="card card-stats">
-                    <div class="card-body">
+                    <div class="card-body ">
                         <div class="row">
                             <div class="col-5 col-md-4">
                                 <div class="icon-big text-center icon-warning">
@@ -44,24 +42,23 @@
                             </div>
                             <div class="col-7 col-md-8">
                                 <div class="numbers">
-                                    <p class="card-category">Total Deudas</p>
-                                    <p class="card-title" id="totalDebts">
-                                       $ {{ number_format($initialData['totalDebts'], 0, ',', '.') }}</p>
+                                    <p class="card-category">Total Movimientos</p>
+                                    <p class="card-title">$ {{ number_format($initialData['totalDebts'], 0, ',', '.') }}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer">
+                    <div class="card-footer ">
                         <hr>
                         <div class="stats">
-                            <i class="fa fa-calendar-o"></i> Último registro
+                            <i class="fa fa-calendar-o"></i> Último mes
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-lg-3 col-md-6 col-sm-6">
                 <div class="card card-stats">
-                    <div class="card-body">
+                    <div class="card-body ">
                         <div class="row">
                             <div class="col-5 col-md-4">
                                 <div class="icon-big text-center icon-warning">
@@ -71,12 +68,12 @@
                             <div class="col-7 col-md-8">
                                 <div class="numbers">
                                     <p class="card-category">Guías Hoy</p>
-                                    <p class="card-title" id="guidesToday">{{ $initialData['guidesToday'] }}</p>
+                                    <p class="card-title">{{ $initialData['guidesToday'] }}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer">
+                    <div class="card-footer ">
                         <hr>
                         <div class="stats">
                             <i class="fa fa-clock-o"></i> En las últimas 24 horas
@@ -86,7 +83,7 @@
             </div>
             <div class="col-lg-3 col-md-6 col-sm-6">
                 <div class="card card-stats">
-                    <div class="card-body">
+                    <div class="card-body ">
                         <div class="row">
                             <div class="col-5 col-md-4">
                                 <div class="icon-big text-center icon-warning">
@@ -96,12 +93,12 @@
                             <div class="col-7 col-md-8">
                                 <div class="numbers">
                                     <p class="card-category">Operadores Activos</p>
-                                    <p class="card-title" id="activeOperators">{{ $initialData['activeOperators'] }}</p>
+                                    <p class="card-title">{{ $initialData['activeOperators'] }}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer">
+                    <div class="card-footer ">
                         <hr>
                         <div class="stats">
                             <i class="fa fa-refresh"></i> Actualizado ahora
@@ -110,24 +107,60 @@
                 </div>
             </div>
         </div>
-
-        <!-- Top 5 Deudas y Guías -->
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card ">
+                    <div class="card-header ">
+                        <h5 class="card-title">Ventas Diarias</h5>
+                        <p class="card-category">Desempeño de los últimos 30 días</p>
+                    </div>
+                    <div class="card-body ">
+                        <canvas id="chartDailySales" width="400" height="200"></canvas>
+                    </div>
+                    <div class="card-footer ">
+                        <hr>
+                        <div class="stats">
+                            <i class="fa fa-history"></i> Actualizado hace 3 minutos
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card ">
+                    <div class="card-header ">
+                        <h5 class="card-title">Ventas vs Gastos</h5>
+                        <p class="card-category">Proporción del mes actual</p>
+                    </div>
+                    <div class="card-body ">
+                        <canvas id="chartSalesVsExpenses"></canvas>
+                    </div>
+                    <div class="card-footer ">
+                        <div class="legend">
+                            <i class="fa fa-circle text-primary"></i> Ventas
+                            <i class="fa fa-circle text-danger"></i> Gastos
+                        </div>
+                        <hr>
+                        <div class="stats">
+                            <i class="fa fa-check"></i> Datos verificados
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="row">
             <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title">Top 5 Deudas por Usuario (Mes Actual)</h5>
+                <div class="card ">
+                    <div class="card-header ">
+                        <h5 class="card-title">Top 5 Movimientos por Usuario</h5>
+                        <p class="card-category">Mes Actual</p>
                     </div>
-                    <div class="card-body">
-                        <ul class="list-unstyled team-members" id="topDebts">
+                    <div class="card-body ">
+                        <ul class="list-group" id="topDebts">
                             @foreach ($initialData['topDebts'] as $debt)
-                                <li>
-                                    <div class="row">
-                                        <div class="col-md-7 col-7">{{ $debt['name'] }}</div>
-                                        <div class="col-md-5 col-5 text-right">
-                                            $ {{ number_format($debt['amount'], 0, ',', '.') }}
-                                        </div>
-                                    </div>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ $debt['name'] }}
+                                    <span class="badge bg-primary rounded-pill">$
+                                        {{ number_format($debt['amount'], 0, ',', '.') }}</span>
                                 </li>
                             @endforeach
                         </ul>
@@ -135,24 +168,18 @@
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title">Top 5 Guías Registradas por Usuario (Mes Actual)</h5>
+                <div class="card ">
+                    <div class="card-header ">
+                        <h5 class="card-title">Top 5 Guías Registradas por Usuario</h5>
+                        <p class="card-category">Mes Actual</p>
                     </div>
-                    <div class="card-body">
-                        <ul class="list-unstyled team-members" id="topGuides">
+                    <div class="card-body ">
+                        <ul class="list-group" id="topGuides">
                             @foreach ($initialData['topGuides'] as $guide)
-                                <li>
-                                    <div class="row">
-                                        <div class="col-md-7 col-7">
-                                            {{ $guide['name'] }}
-                                            <br />
-                                            <span class="text-muted"><small>{{ $guide['guideCount'] }} guías</small></span>
-                                        </div>
-                                        <div class="col-md-5 col-5 text-right">
-                                            {{ number_format($guide['guideCount'], 0, ',', '.') }}
-                                        </div>
-                                    </div>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ $guide['name'] }}
+                                    <span
+                                        class="badge bg-success rounded-pill">{{ number_format($guide['guideCount'], 0, ',', '.') }}</span>
                                 </li>
                             @endforeach
                         </ul>
@@ -160,8 +187,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Gráficos con Selector de Mes -->
         <div class="row">
             <div class="col-md-6">
                 <div class="card">
@@ -179,7 +204,7 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="card-title">Deudas Registradas por Día</h5>
+                        <h5 class="card-title">Movimientos Registrados por Día</h5>
                         <select class="form-control month-selector" data-target="chartDebts">
                             <!-- Opciones de mes se llenarán con JavaScript -->
                         </select>
@@ -190,7 +215,6 @@
                 </div>
             </div>
         </div>
-
         <div class="row">
             <div class="col-md-6">
                 <div class="card">
@@ -202,7 +226,7 @@
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table" id="excelTransportTable">
+                            <table class="table table-striped" id="excelTransportTable">
                                 <thead>
                                     <tr>
                                         <th>Usuario</th>
@@ -232,7 +256,7 @@
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table" id="guideTransportTable">
+                            <table class="table table-striped" id="guideTransportTable">
                                 <thead>
                                     <tr>
                                         <th>Usuario</th>
@@ -240,7 +264,12 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <!-- Se llenará dinámicamente -->
+                                    @foreach ($initialData['guideTransportValueByUser'] as $user => $value)
+                                        <tr>
+                                            <td>{{ $user }}</td>
+                                            <td>{{ number_format($value, 0, ',', '.') }}</td>
+                                        </tr>
+                                    @endforeach
                                 </tbody>
                             </table>
                         </div>
@@ -282,32 +311,96 @@
                 }
 
                 var ctx = document.getElementById(chartId).getContext('2d');
-                charts[chartId] = new Chart(ctx, {
-                    type: 'line',
+                var config = {
+                    type: chartId === 'chartSalesVsExpenses' ? 'pie' : 'line',
                     data: {
                         labels: data.labels,
                         datasets: [{
-                            label: chartId === 'chartGuides' ? 'Guías' : 'Deudas',
+                            label: getChartLabel(chartId),
                             data: data.values,
-                            borderColor: chartId === 'chartGuides' ? 'rgb(75, 192, 192)' :
-                                'rgb(255, 99, 132)',
-                            tension: 0.1
+                            backgroundColor: getChartColor(chartId),
+                            borderColor: getChartColor(chartId),
+                            fill: false
                         }]
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'Fecha'
+                                }
+                            },
                             y: {
-                                beginAtZero: true
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: getYAxisLabel(chartId)
+                                },
+                                ticks: {
+                                    callback: function(value, index, values) {
+                                        return chartId.includes('Sales') ? '$ ' + value.toLocaleString(
+                                            'es-CO') : value;
+                                    }
+                                }
                             }
                         }
                     }
-                });
+                };
+
+                if (chartId === 'chartSalesVsExpenses') {
+                    config.options.scales = {}; // Remove scales for pie chart
+                }
+
+                charts[chartId] = new Chart(ctx, config);
+            }
+
+            function getChartLabel(chartId) {
+                switch (chartId) {
+                    case 'chartDailySales':
+                        return 'Ventas Diarias';
+                    case 'chartGuides':
+                        return 'Guías Registradas';
+                    case 'chartDebts':
+                        return 'Movimientos';
+                    default:
+                        return '';
+                }
+            }
+
+            function getChartColor(chartId) {
+                switch (chartId) {
+                    case 'chartDailySales':
+                        return 'rgb(75, 192, 192)';
+                    case 'chartGuides':
+                        return 'rgb(255, 159, 64)';
+                    case 'chartDebts':
+                        return 'rgb(255, 99, 132)';
+                    case 'chartSalesVsExpenses':
+                        return ['rgb(75, 192, 192)', 'rgb(255, 99, 132)'];
+                    default:
+                        return 'rgb(75, 192, 192)';
+                }
+            }
+
+            function getYAxisLabel(chartId) {
+                switch (chartId) {
+                    case 'chartDailySales':
+                        return 'Ventas ($)';
+                    case 'chartGuides':
+                        return 'Número de Guías';
+                    case 'chartDebts':
+                        return 'Monto ($)';
+                    default:
+                        return '';
+                }
             }
 
             function updateTable(tableId, data) {
                 var table = $('#' + tableId);
-                
                 table.find('tbody').empty();
                 $.each(data, function(user, value) {
                     table.find('tbody').append(
@@ -317,12 +410,10 @@
             }
 
             function formatCurrency(amount) {
-                return new Intl.NumberFormat('es-CO', {
-                    style: 'currency',
-                    currency: 'COP',
+                return '$ ' + amount.toLocaleString('es-CO', {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0
-                }).format(amount);
+                });
             }
 
             $('.month-selector').change(function() {
@@ -351,8 +442,37 @@
 
             initializeMonthSelectors();
 
-            // Inicializar todos los gráficos y tablas con los datos del mes actual
-            $('.month-selector').trigger('change');
+            // Inicializar todas las gráficas con los datos iniciales
+            updateChart('chartDailySales', {
+                labels: {!! json_encode($initialData['monthlyGuides']['labels']) !!},
+                values: {!! json_encode($initialData['monthlyGuides']['values']) !!}
+            });
+            updateChart('chartGuides', {
+                labels: {!! json_encode($initialData['monthlyGuides']['labels']) !!},
+                values: {!! json_encode($initialData['monthlyGuides']['values']) !!}
+            });
+            updateChart('chartDebts', {
+                labels: {!! json_encode($initialData['monthlyDebts']['labels']) !!},
+                values: {!! json_encode($initialData['monthlyDebts']['values']) !!}
+            });
+            updateChart('chartSalesVsExpenses', {
+                labels: ['Ventas', 'Gastos'],
+                values: [
+                    {!! $initialData['totalSalesMonth'] ?? 0 !!},
+                    {!! $initialData['totalExpensesMonth'] ?? 0 !!}
+                ]
+            });
+
+            // Inicializar tablas con los datos iniciales
+            updateTable('excelTransportTable', {!! json_encode($initialData['excelTransportValueByUser']) !!});
+            updateTable('guideTransportTable', {!! json_encode($initialData['guideTransportValueByUser']) !!});
+
+            // Ajustar el tamaño de los gráficos cuando se redimensiona la ventana
+            $(window).resize(function() {
+                for (let chartId in charts) {
+                    charts[chartId].resize();
+                }
+            });
         });
     </script>
 @endpush

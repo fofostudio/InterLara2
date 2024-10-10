@@ -13,6 +13,10 @@ class SecondExcelData extends Model
         'ADM_NumeroGuia',
         'ADM_CreadoPor',
     ];
+    public function point()
+    {
+        return $this->belongsTo(Point::class);
+    }
 
     public function firstExcelData()
     {

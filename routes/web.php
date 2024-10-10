@@ -4,76 +4,61 @@ use App\Http\Controllers\CashClosingController;
 use App\Http\Controllers\DebtController;
 use App\Http\Controllers\ExcelProcessController;
 use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GuideController;
 use App\Http\Controllers\PageController;
-
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
-*/
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    if (Auth::check()) {
-        return redirect('/dashboard'); // Redirige al dashboard si está autenticado
-    } else {
-        return redirect('/login'); // Redirige al login si no está autenticado
-    }
+    return Auth::check() ? redirect('/dashboard') : redirect('/login');
 });
-
 
 require __DIR__ . '/auth.php';
 
-Route::get('/home', 'App\Http\Controllers\HomeController@index')->name('home');
+Route::get('/debts/pend', [DebtController::class, 'pendingDebts'])->name('debts.pending');
 
-Route::group(['middleware' => 'auth'], function () {
+Route::middleware(['auth'])->group(function () {
+    // Dashboard
+    Route::get('/dashboard', [PageController::class, 'dashboard'])->name('dashboard');
+    Route::get('/dashboard/data', [PageController::class, 'getMonthlyData'])->name('dashboard.data');
+
+    // Profile
+    Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('profile/password', [ProfileController::class, 'password'])->name('profile.password');
+
+    // Cash Closings
     Route::get('/cash-closings', [CashClosingController::class, 'index'])->name('cash_closings.index');
     Route::post('/cash-closings', [CashClosingController::class, 'store'])->name('cash_closings.store');
-    Route::resource('user', 'App\Http\Controllers\UserController', ['except' => ['show']]);
-    Route::get('profile', ['as' => 'profile.edit', 'uses' => 'App\Http\Controllers\ProfileController@edit']);
-    Route::put('profile', ['as' => 'profile.update', 'uses' => 'App\Http\Controllers\ProfileController@update']);
-    Route::put('profile/password', ['as' => 'profile.password', 'uses' => 'App\Http\Controllers\ProfileController@password']);
-    Route::get('/excel-upload', [ExcelProcessController::class, 'index'])->name('excel.upload.form');
-    Route::post('/excel-upload/first', [ExcelProcessController::class, 'uploadFirst'])->name('excel.upload.first');
-    Route::post('/excel-upload/second', [ExcelProcessController::class, 'uploadSecond'])->name('excel.upload.second');
-    Route::post('/excel-process', [ExcelProcessController::class, 'processData'])->name('excel.process');
-});
 
-// Rutas protegidas por autenticación
-Route::middleware(['auth'])->group(function () {
-    // Rutas de deudas
-    Route::get('/debts', [DebtController::class, 'index'])->name('debts.index');
-    Route::get('/debts/create', [DebtController::class, 'create'])->name('debts.create');
-    Route::post('/debts', [DebtController::class, 'store'])->name('debts.store');
-    Route::get('/debts/{debt}', [DebtController::class, 'show'])->name('debts.show');
-    Route::get('/debts/{debt}/edit', [DebtController::class, 'edit'])->name('debts.edit');
-    Route::put('/debts/{debt}', [DebtController::class, 'update'])->name('debts.update');
-    Route::delete('/debts/{debt}', [DebtController::class, 'destroy'])->name('debts.destroy');
+    // Excel Process
+    Route::prefix('excel')->name('excel.')->group(function () {
+        Route::get('/upload', [ExcelProcessController::class, 'index'])->name('upload.form');
+        Route::post('/upload/first', [ExcelProcessController::class, 'uploadFirst'])->name('upload.first');
+        Route::post('/upload/second', [ExcelProcessController::class, 'uploadSecond'])->name('upload.second');
+        Route::post('/process', [ExcelProcessController::class, 'processData'])->name('process');
+    });
 
-    // Ruta para marcar una deuda como pagada
+    // Debts
+    Route::resource('debts', DebtController::class);
     Route::patch('/debts/{debt}/mark-as-paid', [DebtController::class, 'markAsPaid'])->name('debts.markAsPaid');
+
+    // Guides
+    Route::resource('guides', GuideController::class);
+
+    // Users
+    Route::resource('user', UserController::class)->except(['show']);
+
+    // Catch-all route for pages
+    Route::get('{page}', [PageController::class, 'index'])->name('page.index');
 });
 
-Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard/data', [PageController::class, 'getMonthlyData'])->name('dashboard.data');
-    Route::get('/dashboard', [PageController::class, 'dashboard'])->name('dashboard');
-
-    Route::get('/guides', [GuideController::class, 'index'])->name('guides.index');
-    Route::get('/guides/create', [GuideController::class, 'create'])->name('guides.create');
-    Route::post('/guides', [GuideController::class, 'store'])->name('guides.store');
-    Route::get('/guides/{guide}', [GuideController::class, 'show'])->name('guides.show');
-    Route::get('/guides/{guide}/edit', [GuideController::class, 'edit'])->name('guides.edit');
-    Route::put('/guides/{guide}', [GuideController::class, 'update'])->name('guides.update');
-    Route::delete('/guides/{guide}', [GuideController::class, 'destroy'])->name('guides.destroy');
-});
-
-Route::group(['middleware' => 'auth'], function () {
-    Route::get('{page}', ['as' => 'page.index', 'uses' => 'App\Http\Controllers\PageController@index']);
+// SuperAdmin routes
+Route::group(['middleware' => ['auth', 'role:superadmin'], 'prefix' => 'superadmin', 'as' => 'superadmin.'], function () {
+    Route::resource('points', 'App\Http\Controllers\PointController');
+    Route::resource('users', 'App\Http\Controllers\SuperAdminUserController');
+    Route::resource('roles', 'App\Http\Controllers\RoleController')->except(['show']);
+    Route::post('points/{point}/assign-user', 'App\Http\Controllers\PointController@assignUser')->name('points.assignUser');
+    Route::delete('points/{point}/remove-user/{user}', 'App\Http\Controllers\PointController@removeUser')->name('points.removeUser');
 });

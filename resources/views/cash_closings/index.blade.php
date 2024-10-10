@@ -30,28 +30,34 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="expenses">Gastos</label>
-                                    <input type="text" class="form-control currency-input" id="expenses" name="expenses" required value="0">
+                                    <label for="expenses">Gastos (Hoy: {{ formatCurrency($expensesToday) }})</label>
+                                    <input type="text" class="form-control currency-input" id="expenses" name="expenses" required value="{{ $expensesToday }}">
                                 </div>
                             </div>
                         </div>
                         <div class="row">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="cash">Efectivo</label>
                                     <input type="text" class="form-control currency-input" id="cash" name="cash" required value="0">
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="cancelled_guides">Guía Anular</label>
                                     <input type="text" class="form-control currency-input" id="cancelled_guides" name="cancelled_guides" required value="0">
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-group">
-                                    <label for="debt">Deuda</label>
-                                    <input type="text" class="form-control currency-input" id="debt" name="debt" required value="0">
+                                    <label for="debt">Deuda (Hoy: {{ formatCurrency($debtsToday) }})</label>
+                                    <input type="text" class="form-control currency-input" id="debt" name="debt" required value="{{ $debtsToday }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="digital_wallets">Billeteras Digitales</label>
+                                    <input type="text" class="form-control currency-input" id="digital_wallets" name="digital_wallets" required value="0">
                                 </div>
                             </div>
                         </div>
@@ -226,6 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
         new Cleave(input, {
             numeral: true,
             numeralThousandsGroupStyle: 'thousand',
+            numeralDecimalScale: 0, // No mostrar decimales
             prefix: '$ ',
             rawValueTrimPrefix: true
         });

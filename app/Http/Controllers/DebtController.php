@@ -12,18 +12,24 @@ class DebtController extends Controller
 {
     public function index()
     {
-        $totalDebts = Debt::pending()->sum('amount');
-        $debtsToday = Debt::pending()->whereDate('created_at', today())->sum('amount');
-        $averageDailyDebts = round(Debt::pending()->whereMonth('created_at', now()->month)->avg('amount'), 2);
-        $totalDebtsCurrentMonth = Debt::pending()->whereMonth('created_at', now()->month)->sum('amount');
-        $operators = User::whereHas('role', function ($query) {
+        $pointId = Auth::user()->point_id;
+
+        $totalDebts = Debt::pending()->where('point_id', $pointId)->where('is_expense', false)->where('status',  'pending')->sum('amount');
+        $debtsToday = Debt::pending()->where('point_id', $pointId)->where('is_expense', false)->where('status',  'pending')->whereDate('created_at', today())->sum('amount');
+        $averageDailyDebts = round(Debt::pending()->where('point_id', $pointId)->where('is_expense', false)->where('status',  'pending')->whereMonth('created_at', now()->month)->avg('amount'), 2);
+        $totalDebtsCurrentMonth = Debt::pending()->where('point_id', $pointId)->where('status',  'pending')->where('is_expense', false)->whereMonth('created_at', now()->month)->sum('amount');
+        $expensesToday = Debt::where('point_id', $pointId)->where('status',  'pending')->where('is_expense', true)->whereDate('created_at', today())->sum('amount');
+
+        $operators = User::where('point_id', $pointId)->whereHas('role', function ($query) {
             $query->whereIn('name', ['operator', 'misc']);
         })->get();
 
+        $latestDebts = Debt::where('point_id', $pointId)->with('user')->where('status',  'pending')->latest()->take(10)->get();
 
-        $latestDebts = Debt::pending()->with('user')->latest()->take(10)->get();
-
-        $debtsPivotTable = Debt::pending()->whereMonth('created_at', now()->month)
+        $debtsPivotTable = Debt::where('point_id', $pointId)
+            ->where('is_expense', false)
+            ->where('status',  'pending')
+            ->whereMonth('created_at', now()->month)
             ->select('user_id', DB::raw('DAY(created_at) as day'), DB::raw('SUM(amount) as total'))
             ->groupBy('user_id', 'day')
             ->get()
@@ -39,16 +45,17 @@ class DebtController extends Controller
             'debtsToday',
             'averageDailyDebts',
             'totalDebtsCurrentMonth',
+            'expensesToday',
             'operators',
             'latestDebts',
             'debtsPivotTable',
             'operatorNames'
         ));
     }
-
     public function create()
     {
-        $operators = User::whereHas('role', function ($query) {
+        $pointId = Auth::user()->point_id;
+        $operators = User::where('point_id', $pointId)->whereHas('role', function ($query) {
             $query->where('name', 'operator');
         })->get();
 
@@ -58,18 +65,26 @@ class DebtController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'user_id' => 'required|exists:users,id',
             'amount' => 'required',
             'description' => 'nullable|string|max:255',
+            'is_expense' => 'required|boolean',
         ]);
 
+        if (!$request->is_expense) {
+            $request->validate([
+                'user_id' => 'required|exists:users,id',
+            ]);
+        }
+
         $debt = new Debt();
-        $debt->user_id = $request->user_id;
-        $amount = preg_replace('/[^0-9.]/', '', $request->input('amount'));  // Eliminar cualquier cosa que no sea número o punto decimal
-        $debt->amount = is_numeric($amount) ? (float) $amount : 0;  // Asegurar que sea un número
-                $debt->observation = $request->description;
+        $debt->user_id = $request->is_expense ? 19 : $request->user_id;
+        $amount = preg_replace('/[^0-9.]/', '', $request->input('amount'));
+        $debt->amount = is_numeric($amount) ? (float) $amount : 0;
+        $debt->observation = $request->description;
         $debt->cashier_id = Auth::id();
+        $debt->point_id = Auth::user()->point_id;
         $debt->status = Debt::STATUS_PENDING;
+        $debt->is_expense = $request->is_expense;
         $debt->save();
 
         $stats = $this->getUpdatedStats();
@@ -77,29 +92,67 @@ class DebtController extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Deuda registrada exitosamente.',
+                'message' => $request->is_expense ? 'Gasto registrado exitosamente.' : 'Deuda registrada exitosamente.',
                 'debt' => $debt->load('user'),
                 'stats' => $stats,
             ]);
         }
 
-        return redirect()->route('debts.index')->with('success', 'Deuda registrada exitosamente.');
+        return redirect()->route('debts.index')->with('success', $request->is_expense ? 'Gasto registrado exitosamente.' : 'Deuda registrada exitosamente.');
     }
+
+
+    public function pendingDebts()
+    {
+        $pointId = Auth::user()->point_id;
+
+        $pendingDebts = Debt::where('point_id', $pointId)
+            ->where('status', Debt::STATUS_PENDING)
+            ->with('user')
+            ->latest()
+            ->paginate(15);
+
+        $paymentsToday = Debt::where('point_id', $pointId)
+            ->whereDate('paid_at', today())
+            ->count();
+
+        $totalPaymentsToday = Debt::where('point_id', $pointId)
+            ->whereDate('paid_at', today())
+            ->sum('amount');
+
+        return view('debts.pending', compact('pendingDebts', 'paymentsToday', 'totalPaymentsToday'));
+    }
+
     public function markAsPaid(Debt $debt)
     {
-        $debt->markAsPaid();
+        if ($debt->point_id !== Auth::user()->point_id) {
+            return response()->json(['success' => false, 'message' => 'No tienes permiso para modificar esta deuda.'], 403);
+        }
 
-        return redirect()->route('debts.index')->with('success', 'Deuda marcada como pagada exitosamente.');
+        $debt->status = Debt::STATUS_PAID;
+        $debt->paid_at = now();
+        $debt->save();
+
+        return response()->json(['success' => true, 'message' => 'Deuda marcada como pagada exitosamente.']);
     }
 
     public function show(Debt $debt)
     {
+        if ($debt->point_id !== Auth::user()->point_id) {
+            return redirect()->route('debts.index')->with('error', 'No tienes permiso para ver esta deuda.');
+        }
+
         return view('debts.show', compact('debt'));
     }
 
     public function edit(Debt $debt)
     {
-        $operators = User::whereHas('role', function ($query) {
+        if ($debt->point_id !== Auth::user()->point_id) {
+            return redirect()->route('debts.index')->with('error', 'No tienes permiso para editar esta deuda.');
+        }
+
+        $pointId = Auth::user()->point_id;
+        $operators = User::where('point_id', $pointId)->whereHas('role', function ($query) {
             $query->where('name', 'operator');
         })->get();
 
@@ -108,6 +161,10 @@ class DebtController extends Controller
 
     public function update(Request $request, Debt $debt)
     {
+        if ($debt->point_id !== Auth::user()->point_id) {
+            return redirect()->route('debts.index')->with('error', 'No tienes permiso para actualizar esta deuda.');
+        }
+
         $request->validate([
             'user_id' => 'required|exists:users,id',
             'amount' => 'required|numeric|min:0',
@@ -116,7 +173,7 @@ class DebtController extends Controller
 
         $debt->user_id = $request->user_id;
         $debt->amount = $request->amount;
-        $debt->description = $request->description;
+        $debt->observation = $request->description;
         $debt->save();
 
         return redirect()->route('debts.index')->with('success', 'Deuda actualizada exitosamente.');
@@ -124,6 +181,10 @@ class DebtController extends Controller
 
     public function destroy(Debt $debt)
     {
+        if ($debt->point_id !== Auth::user()->point_id) {
+            return redirect()->route('debts.index')->with('error', 'No tienes permiso para eliminar esta deuda.');
+        }
+
         $debt->delete();
 
         return redirect()->route('debts.index')->with('success', 'Deuda eliminada exitosamente.');
@@ -131,11 +192,15 @@ class DebtController extends Controller
 
     private function getUpdatedStats()
     {
+        $pointId = Auth::user()->point_id;
+
         return [
-            'totalDebts' => Debt::pending()->sum('amount'),
-            'debtsToday' => Debt::pending()->whereDate('created_at', today())->sum('amount'),
-            'averageDailyDebts' => round(Debt::pending()->whereMonth('created_at', now()->month)->avg('amount'), 2),
-            'totalDebtsCurrentMonth' => Debt::pending()->whereMonth('created_at', now()->month)->sum('amount'),
+            'totalDebts' => Debt::pending()->where('point_id', $pointId)->where('is_expense', false)->sum('amount'),
+            'debtsToday' => Debt::pending()->where('point_id', $pointId)->where('is_expense', false)->whereDate('created_at', today())->sum('amount'),
+            'averageDailyDebts' => round(Debt::pending()->where('point_id', $pointId)->where('is_expense', false)->whereMonth('created_at', now()->month)->avg('amount'), 2),
+            'totalDebtsCurrentMonth' => Debt::pending()->where('point_id', $pointId)->where('is_expense', false)->whereMonth('created_at', now()->month)->sum('amount'),
+            'totalExpenses' => Debt::where('point_id', $pointId)->where('is_expense', true)->sum('amount'),
+            'expensesToday' => Debt::where('point_id', $pointId)->where('is_expense', true)->whereDate('created_at', today())->sum('amount'),
         ];
     }
 }

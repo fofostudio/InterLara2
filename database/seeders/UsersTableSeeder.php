@@ -16,15 +16,15 @@ class UsersTableSeeder extends Seeder
      */
     public function run()
     {
-        $adminRole = Role::where('name', 'admin')->first();
+        $adminRole = Role::where('name', 'superadmin')->first();
 
         if (!$adminRole) {
             throw new \Exception('Admin role not found. Make sure RoleSeeder has been run.');
         }
 
         DB::table('users')->insert([
-            'name' => 'Administrador',
-            'email' => 'admin@appinter.co',
+            'name' => 'Super Administrador',
+            'email' => 'superadmin@appinter.co',
             'email_verified_at' => now(),
             'password' => Hash::make('secret'),
             'created_at' => now(),

@@ -31,6 +31,10 @@ class Guide extends Model
     {
         return $query->where('status', $status);
     }
+    public function point()
+{
+    return $this->belongsTo(Point::class);
+}
 
     // Método para calcular el total de guías por operador
     public static function totalByOperator($userId)

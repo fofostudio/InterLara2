@@ -13,7 +13,9 @@ class CashClosing extends Model
         'cash',
         'cancelled_guides',
         'debt',
-        'user_id'
+        'digital_wallets',
+        'user_id',
+        'point_id'  // Asegúrate de que esto esté incluido
     ];
 
     protected $casts = [

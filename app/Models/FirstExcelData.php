@@ -95,6 +95,10 @@ class FirstExcelData extends Model
         'fecha_recibido' => 'datetime',
         'fecha_archivo' => 'datetime',
     ];
+    public function point()
+    {
+        return $this->belongsTo(Point::class);
+    }
 
     public function secondExcelData()
     {
